@@ -1,0 +1,111 @@
+from keras.layers import Input, Dense, Conv2D, MaxPooling2D, UpSampling2D, LSTM, RepeatVector,  TimeDistributed
+from keras.models import Model
+from keras.layers import TimeDistributed
+import numpy as np
+import matplotlib.pyplot as plt
+from PIL import Image
+from skimage.metrics import peak_signal_noise_ratio as psnr
+from skimage.metrics import structural_similarity as ssim
+from skimage.metrics import mean_squared_error
+!pip install bing-image-downloader
+from bing_image_downloader import downloader
+import os
+
+# Download images using Bing Image Downloader
+downloader.download("flowers", limit=40, output_dir='images')
+
+# Load and preprocess your custom dataset from a local device
+dataset_dir = 'images/flowers/'  # Directory containing the downloaded images
+image_files = os.listdir(dataset_dir)
+
+new_size = (64, 64)  # Set the desired resolution
+
+for image_file in image_files:
+    image_path = os.path.join(dataset_dir, image_file)
+    custom_image = Image.open(image_path).convert('L')  # Convert to grayscale if needed
+    custom_image_resized = custom_image.resize(new_size)
+
+    custom_image = np.array(custom_image_resized)
+    custom_image = custom_image.astype('float32') / 255.0
+    custom_image = np.expand_dims(custom_image, axis=0)  # Add batch dimension
+    custom_image = np.expand_dims(custom_image, axis=3)  # Add channel dimension
+custom_image
+# Define the Convolutional Autoencoder architecture
+    input_img_conv = Input(shape=(new_size[0], new_size[1], 1))
+
+    # Encoder
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(input_img_conv)
+    encoded = Conv2D(4, (3, 3), activation='relu', padding='same')(x)
+
+    # Decoder
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(encoded)
+    decoded_conv = Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+
+    # Create the convolutional autoencoder model
+    autoencoder_conv = Model(input_img_conv, decoded_conv)
+    autoencoder_conv.compile(optimizer='adam', loss='mse')  # Use Mean Squared Error (MSE) loss
+
+    # Train the Convolutional Autoencoder with the current image
+    autoencoder_conv.fit(custom_image, custom_image, epochs=50, batch_size=32, shuffle=True)
+
+    # Use the trained convolutional autoencoder to compress the current image
+    compressed_image_conv = autoencoder_conv.predict(custom_image)
+
+ # Define the RNN-based Autoencoder architecture
+    input_img_rnn = Input(shape=(new_size[0], new_size[1]))  # Define input shape here
+
+    # Encoder
+    x = LSTM(32, activation='relu')(input_img_rnn)
+    encoded_rnn = RepeatVector(new_size[0])(x)
+
+    # Decoder
+    x = LSTM(32, activation='relu', return_sequences=True)(encoded_rnn)
+    decoded_rnn = TimeDistributed(Dense(new_size[1], activation='sigmoid'))(x)
+
+    # Create the RNN-based autoencoder model
+    autoencoder_rnn = Model(input_img_rnn, decoded_rnn)
+    autoencoder_rnn.compile(optimizer='adam', loss='mse')  # Use Mean Squared Error (MSE) loss
+
+    # Reshape the input for RNN
+    custom_image_rnn = custom_image.reshape((custom_image.shape[0], new_size[0], new_size[1]))
+
+    # Train the RNN-based Autoencoder with the current image
+    autoencoder_rnn.fit(custom_image_rnn, custom_image_rnn, epochs=20, batch_size=32, shuffle=True)
+
+    # Use the trained RNN-based autoencoder to compress the current image
+    compressed_image_rnn = autoencoder_rnn.predict(custom_image_rnn)
+
+
+    # Calculate image quality metrics for Convolutional Autoencoder
+    psnr_value_conv = psnr(custom_image[0, :, :, 0], compressed_image_conv[0, :, :, 0], data_range=compressed_image_conv[0, :, :, 0].max() - compressed_image_conv[0, :, :, 0].min())
+    ssim_value_conv = ssim(custom_image[0, :, :, 0], compressed_image_conv[0, :, :, 0], data_range=compressed_image_conv[0, :, :, 0].max() - compressed_image_conv[0, :, :, 0].min())
+    mse_value_conv = mean_squared_error(custom_image[0, :, :, 0], compressed_image_conv[0, :, :, 0])
+    snr_value_conv = 10 * np.log10(np.mean(custom_image ** 2) / mse_value_conv)
+
+ # Calculate image quality metrics for RNN-based Autoencoder
+    psnr_value_rnn = psnr(custom_image_rnn[0], compressed_image_rnn[0], data_range=compressed_image_rnn[0].max() - compressed_image_rnn[0].min())
+    ssim_value_rnn = ssim(custom_image_rnn[0], compressed_image_rnn[0], data_range=compressed_image_rnn[0].max() - compressed_image_rnn[0].min())
+    mse_value_rnn = mean_squared_error(custom_image_rnn[0], compressed_image_rnn[0])
+    snr_value_rnn = 10 * np.log10(np.mean(custom_image_rnn ** 2) / mse_value_rnn)
+ print("Image:", image_file)
+    print("Convolutional Autoencoder:")
+    print("PSNR:", psnr_value_conv)
+    print("SSIM:", ssim_value_conv)
+    print("MSE:", mse_value_conv)
+    print("SNR:", snr_value_conv)
+    print("RNN-based Autoencoder:")
+    print("PSNR:", psnr_value_rnn)
+    print("SSIM:", ssim_value_rnn)
+    print("MSE:", mse_value_rnn)
+    print("SNR:", snr_value_rnn)
+import matplotlib.pyplot as plt
+
+# Display the input image
+plt.imshow(custom_image[0, :, :, 0], cmap='gray')
+plt.title('Input Image')
+plt.show()
+
+# Display the output image for RNN
+plt.imshow(compressed_image_conv[0, :, :, 0], cmap='gray')
+plt.title('Output Image')
+plt.show()
