@@ -1,0 +1,15 @@
+# Essential Libraries
+torch==2.0.1  # Adjust based on your CUDA version
+torchvision==0.15.2  # Ensure compatibility with PyTorch
+numpy==1.24.3  # For tensor and numerical operations
+matplotlib==3.7.1  # For visualizing generated images
+
+# Image Processing & Utilities
+pillow==9.5.0  # Required by torchvision for image processing
+tqdm==4.65.0  # For displaying training progress bars
+seaborn==0.12.2  # (Optional) For advanced visualization
+
+# Environment & Version Management
+scipy==1.10.1  # Useful for some deep learning utilities
+opencv-python==4.7.0.72  # (Optional) If you plan to do additional image processing
+Once this file is in your GitHub repository, users can install dependencies with: pip install -r requirements.txt
